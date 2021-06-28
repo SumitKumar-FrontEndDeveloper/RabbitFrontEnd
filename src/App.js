@@ -165,7 +165,8 @@ const ShortUrlList = () => {
     const response = await API.get("/getUrlList?page=" + page);
     console.log("res", response)
     if(response?.status_code==200) {
-      let totalPages = Math.floor(response?.data?.urlList?.total / 5) + 1;
+      let totalPages = Math.floor(response?.urlList?.total / 5) + 1;
+      console.log("totalPages", totalPages)
       setTotalUrl(totalPages);
       setUrlList(response?.urlList?.data);
       setLoading(false);
