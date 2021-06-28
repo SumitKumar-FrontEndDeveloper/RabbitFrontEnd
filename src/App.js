@@ -5,6 +5,8 @@ import { Form, Button, Table } from "react-bootstrap";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Pagination from "./pagination";
+import API from './api'
+import moment from 'moment'
 function App() {
   const [tab, setTab] = useState("short");
 
@@ -38,7 +40,6 @@ const ShortUrlComponent = () => {
   const [longUrl, setLongUrl] = useState({
     url: "",
     urlError: false,
-    customUrl: "",
     response: null,
   });
   const [loading, setLoading] = useState(false);
@@ -59,49 +60,44 @@ const ShortUrlComponent = () => {
     setLongUrl((prevState) => ({ ...longUrl, url, urlError: !validURL(url) }));
   };
   const submitForm = async () => {
-   if (!validURL(longUrl.url)) { console.log("ddfg")
+   if (!validURL(longUrl.url)) { 
       setLongUrl((prevState) => {
         const arr = { ...prevState, urlError : true };
         return arr;
       });
       return;
     }
-
     setLoading(true);
-    const urlData = { url: longUrl.url, customUrl: longUrl.customUrl };
-    axios
-      .post("http://localhost:80/rabbit/public/api/v1/changeUrl", urlData)
-      .then((response) => {
-        setLoading(false);
-        setLongUrl((prevState) => ({ ...longUrl, response: response?.data }));
-        console.log(response?.data);
-        return response;
-      })
-      .catch((e) => {
-        setLoading(false);
-        alert("something went wrong.");
-        return e;
-      });
+    const urlData = { url: longUrl.url, expiryDate };
+    API.post('/changeUrl' , {} , undefined , urlData).then((res) => {
+      console.log("resres,", res)
+      setLoading(false);
+      setLongUrl((prevState) => ({ ...longUrl, response: res?.data }));
+    }).catch((e)=> {
+      setLoading(false);
+      console.log("eeeee",e.response)
+      if(e.response?.data){
+          alert(e.response?.data?.msg+":: status code::"+e.response?.status)
+      }
+    }) ;
+    
   };
 
-  const openLongUrl = (code) => {
+  const openLongUrl = async (code) => {
     if (!code) return;
     setLoading(true);
-    axios
-      .get(
-        "http://localhost:80/rabbit/public/api/v1/getLongUrl?short_code=" + code
-      )
-      .then((response) => {
-        setLoading(false);
-        console.log("response", response?.data);
-        window.open(response?.data?.long_url, "_blank");
-        return response;
-      })
-      .catch((e) => {
-        setLoading(false);
-        alert("something went wrong.");
-        return e;
-      });
+    API.get("/getLongUrl?short_code=" + code).then((res) => {
+      console.log("eeeee",res)
+      setLoading(false);
+      window.open(res.long_url, '_blank')
+
+    }).catch((e)=> {
+      setLoading(false);
+      console.log("eeeee",e.response)
+      if(e.response?.data){
+          alert(e.response?.data?.msg+":: status code::"+e.response?.status)
+      }
+    }) ;
   };
 
   return (
@@ -147,25 +143,6 @@ const ShortUrlComponent = () => {
             minDate={expiryDate}
           />
         </div>
-        <div className="customizeBox">
-          <h4>Customize your link</h4>
-        </div>
-        <div className="textBox">
-          <Form.Control
-            as="select"
-            size="lg"
-            value={longUrl.customUrl}
-            onChange={(e) =>
-              setLongUrl({ ...longUrl, customUrl: e.target.value })
-            }
-          >
-            <option value="">Select Link</option>
-            <option value="tinyurl.com">tinyurl.com</option>
-            <option value="abc.com">abc.com</option>
-            <option value="vidly.com">vidly.com</option>
-          </Form.Control>
-        </div>
-
         <div className="buttonBox">
           <Button type="submit" onClick={submitForm}>
             Make ShortURL!
@@ -183,23 +160,19 @@ const ShortUrlList = () => {
   const [perPage, setPerPage] = useState(5);
   const [page, setPage] = useState(1);
 
-  const getUrlData = () => {
+  const getUrlData = async () => {
     setLoading(true);
-    axios
-      .get("http://localhost:80/rabbit/public/api/v1/getUrlList?page=" + page)
-      .then((response) => {
-        setLoading(false);
-        console.log("response", response?.data);
-        let totalPages = Math.floor(response?.data?.urlList?.total / 5) + 1;
-        setTotalUrl(totalPages);
-        setUrlList(response?.data?.urlList?.data);
-        return response;
-      })
-      .catch((e) => {
-        setLoading(false);
-        alert("something went wrong.");
-        return e;
-      });
+    const response = await API.get("/getUrlList?page=" + page);
+    console.log("res", response)
+    if(response?.status_code==200) {
+      let totalPages = Math.floor(response?.data?.urlList?.total / 5) + 1;
+      setTotalUrl(totalPages);
+      setUrlList(response?.urlList?.data);
+      setLoading(false);
+    } else {
+      setLoading(false);
+      alert("something went wrong.");
+    }
   };
 
   useEffect(() => {
@@ -213,29 +186,45 @@ const ShortUrlList = () => {
     }
     setLoading(true);
     const deletedata = { id };
-    axios
-      .post("http://localhost:80/rabbit/public/api/v1/deleteUrl", deletedata)
-      .then((response) => {
-        setLoading(false);
-        console.log(response?.data);
+
+    API.post('/deleteUrl' , {} , undefined , deletedata).then((res) => {
+      setLoading(false);
+        console.log("ddd",res)
+        console.log(res?.data);
         setUrlList((prevState) => {
           const arr = [...prevState];
           arr.splice(index, 1);
           return arr;
         });
-
-        return response;
-      })
-      .catch((e) => {
-        setLoading(false);
-        alert("something went wrong.");
-        return e;
-      });
+    }).catch((e)=> {
+      setLoading(false);
+      console.log("eeeee",e.response)
+      if(e.response?.data){
+          alert(e.response?.data?.msg+":: status code::"+e.response?.status)
+      }
+    }) ;
   };
   const nextPage = (page) => {
     console.log("page", page);
     setPage(page);
   };
+
+  const checkUrl = (code) => {
+    if (!code) return;
+    setLoading(true);
+    API.get("/getLongUrl?short_code=" + code).then((res) => {
+      console.log("eeeee",res)
+      setLoading(false);
+      window.open(res.long_url, '_blank')
+
+    }).catch((e)=> {
+      setLoading(false);
+      console.log("eeeee",e.response)
+      if(e.response?.data){
+          alert(e.response?.data?.msg+":: status code::"+e.response?.status)
+      }
+    });
+  }
 
   return (
     <>
@@ -245,7 +234,7 @@ const ShortUrlList = () => {
           <thead>
             <tr>
               <th>#</th>
-              <th>Short Code</th>
+              <th>Short URL/Code</th>
               <th>Long Url</th>
               <th>Hits</th>
               <th>Expiry Date</th>
@@ -259,10 +248,10 @@ const ShortUrlList = () => {
                   <td>
                     {page == 1 ? key + 1 : key + 1 + perPage * (page - 1)}
                   </td>
-                  <td>{val.short_code}</td>
+                  <td><a href="javascript:void(0)" onClick={() => checkUrl(val.short_code)}>http://www.rabbit.com/{val.short_code}</a></td>
                   <td>{val.long_url}</td>
                   <td>{val.hits}</td>
-                  <td>{val.expiry_date}</td>
+                  <td>{moment(val.expiry_date).format('DD-MM-YYYY')}</td>
                   <td>
                     <a
                       href="javascript:void(0)"
